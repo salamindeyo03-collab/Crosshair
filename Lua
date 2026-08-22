@@ -1,0 +1,222 @@
+-- Crosshair Dinámico Manual (Bloqueo absoluto en partida / Rastreo total en menus)
+-- ✨ [수정됨] UICorner를 적용하여 끝부분 직각을 없애고 완벽하게 둥글게 번지게 수정
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+ 
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local TargetGui = CoreGui or PlayerGui
+ 
+-- Limpiar versiones anteriores para evitar duplicados
+if TargetGui:FindFirstChild("SleepyStaticCenterCrosshair") then
+    TargetGui.SleepyStaticCenterCrosshair:Destroy()
+end
+ 
+-- Crear Interfaz Base
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SleepyStaticCenterCrosshair"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 9999
+ScreenGui.Parent = TargetGui
+ 
+-- Contenedor del centro
+local CenterContainer = Instance.new("Frame")
+CenterContainer.Name = "Centro"
+CenterContainer.Size = UDim2.new(0, 0, 0, 0)
+CenterContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+CenterContainer.BackgroundTransparency = 1
+CenterContainer.Parent = ScreenGui
+ 
+-- Contenedor de Texto Estatico
+local TextContainer = Instance.new("Frame")
+TextContainer.Name = "TextoContenedor"
+TextContainer.Size = UDim2.new(0, 0, 0, 0)
+TextContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+TextContainer.BackgroundTransparency = 1
+TextContainer.Parent = ScreenGui
+ 
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Name = "YokaiText"
+TextLabel.Size = UDim2.new(0, 300, 0, 20)
+TextLabel.Position = UDim2.new(0, -150, 0, 22)
+TextLabel.BackgroundTransparency = 1
+TextLabel.RichText = true 
+TextLabel.Text = '<font letter-spacing="6">yurei.win</font>' 
+TextLabel.Font = Enum.Font.Arial 
+TextLabel.TextSize = 14
+TextLabel.TextStrokeTransparency = 0 
+TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+TextLabel.Parent = TextContainer
+ 
+-- ==========================================
+-- CONFIGURACIÓN AJUSTABLE OPTIMIZADA
+-- ==========================================
+local BaseLength = 17 
+local Thickness = 1  
+local CenterGap = 8  
+local RotationSpeed = 150 
+local RGBSpeed = 0.05 
+local SizeRange = 5 
+local PulseSpeed = 3.5 
+local MinSpeedMultiplier = 0.35 
+local MaxSpeedMultiplier = 1.75 
+ 
+-- ✨ [수정됨] 더 부드러운 번짐을 위한 4단계 레이어 (가장 바깥쪽 추가)
+local GlowLayers = {
+    {add = 2, transparency = 0.3},  -- 가장 안쪽 (진함)
+    {add = 5, transparency = 0.6},  -- 중간
+    {add = 10, transparency = 0.85}, -- 바깥쪽
+    {add = 16, transparency = 0.95}  -- 가장 바깥쪽 (아주 연하게 퍼짐)
+}
+-- ==========================================
+ 
+local Lines = {}
+local Outlines = {}
+local Glows = {} 
+
+for i = 1, 4 do
+    -- ✨ 1. 다중 글로우 레이어 (UICorner 적용)
+    Glows[i] = {}
+    for l = 1, #GlowLayers do
+        local Glow = Instance.new("Frame")
+        Glow.Name = "Glow_"..i.."_"..l
+        Glow.BorderSizePixel = 0
+        Glow.AnchorPoint = Vector2.new(0.5, 0.5)
+        Glow.ZIndex = 1
+        
+        -- 직각을 없애기 위한 둥근 모서리 (너비의 절반을 둥글게 깎아 알약 모양으로 만듦)
+        local GlowCorner = Instance.new("UICorner")
+        GlowCorner.CornerRadius = UDim.new(0.5, 0) 
+        GlowCorner.Parent = Glow
+        
+        Glow.Parent = CenterContainer
+        Glows[i][l] = Glow
+    end
+ 
+    -- 2. Fondo negro sutil
+    local Outline = Instance.new("Frame")
+    Outline.Name = "Borde" .. i
+    Outline.BorderSizePixel = 0
+    Outline.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Outline.BackgroundTransparency = 0.5 
+    Outline.AnchorPoint = Vector2.new(0.5, 0.5)
+    Outline.ZIndex = 2
+    Outline.Parent = CenterContainer
+    Outlines[i] = Outline
+ 
+    -- 3. Línea RGB central
+    local Line = Instance.new("Frame")
+    Line.Name = "Linea" .. i
+    Line.BorderSizePixel = 0 
+    Line.AnchorPoint = Vector2.new(0.5, 0.5)
+    Line.ZIndex = 3
+    Line.Parent = CenterContainer
+    Lines[i] = Line
+end
+ 
+local TickCounter = 0
+local ModoMenu = false 
+ 
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.M or input.KeyCode == Enum.KeyCode.ButtonSelect then
+        ModoMenu = not ModoMenu
+    end
+end)
+ 
+local Connection
+Connection = RunService.RenderStepped:Connect(function(deltaTime)
+    if not CenterContainer or not CenterContainer.Parent then
+        Connection:Disconnect()
+        return
+    end
+ 
+    TickCounter = TickCounter + deltaTime
+ 
+    local CurrentPosition
+    if not ModoMenu then
+        CurrentPosition = UDim2.new(0.5, 0, 0.5, 0)
+    else
+        local CursorLocation
+        if GuiService.SelectedObject then
+            local AbsolutePosition = GuiService.SelectedObject.AbsolutePosition
+            local AbsoluteSize = GuiService.SelectedObject.AbsoluteSize
+            CursorLocation = Vector2.new(
+                AbsolutePosition.X + (AbsoluteSize.X / 2),
+                AbsolutePosition.Y + (AbsoluteSize.Y / 2)
+            )
+        else
+            CursorLocation = UserInputService:GetMouseLocation()
+        end
+        CurrentPosition = UDim2.new(0, CursorLocation.X, 0, CursorLocation.Y)
+    end
+    
+    CenterContainer.Position = CurrentPosition
+    TextContainer.Position = CurrentPosition
+ 
+    local PulseFactor = math.sin(TickCounter * PulseSpeed)
+ 
+    local SpeedPercentage = (PulseFactor + 1) / 2 
+    local SpeedLerp = MinSpeedMultiplier + (SpeedPercentage * (MaxSpeedMultiplier - MinSpeedMultiplier))
+    local CurrentRotationSpeed = RotationSpeed * SpeedLerp
+ 
+    CenterContainer.Rotation = (CenterContainer.Rotation + (CurrentRotationSpeed * deltaTime)) % 360
+ 
+    local Hue = (TickCounter * RGBSpeed) % 1
+    local CurrentColor = Color3.fromHSV(Hue, 1, 1)
+    
+    TextLabel.TextColor3 = CurrentColor
+ 
+    local DynamicLength = BaseLength + (PulseFactor * SizeRange)
+    local BorderSpread = 1 
+ 
+    local configs = {
+        {isVertical = true,  offset = -CenterGap - (DynamicLength / 2)},
+        {isVertical = true,  offset = CenterGap + (DynamicLength / 2)},
+        {isVertical = false, offset = -CenterGap - (DynamicLength / 2)},
+        {isVertical = false, offset = CenterGap + (DynamicLength / 2)}
+    }
+ 
+    for i = 1, 4 do
+        local cfg = configs[i]
+        local size, pos
+ 
+        if cfg.isVertical then
+            size = UDim2.new(0, Thickness, 0, DynamicLength)
+            pos = UDim2.new(0, 0, 0, cfg.offset)
+        else
+            size = UDim2.new(0, DynamicLength, 0, Thickness)
+            pos = UDim2.new(0, cfg.offset, 0, 0)
+        end
+ 
+        Lines[i].Size = size
+        Lines[i].Position = pos
+        Lines[i].BackgroundColor3 = CurrentColor
+ 
+        if cfg.isVertical then
+            Outlines[i].Size = UDim2.new(0, Thickness + (BorderSpread * 2), 0, DynamicLength + (BorderSpread * 2))
+        else
+            Outlines[i].Size = UDim2.new(0, DynamicLength + (BorderSpread * 2), 0, Thickness + (BorderSpread * 2))
+        end
+        Outlines[i].Position = pos
+ 
+        -- ✨ 글로우 레이어 사이즈 및 색상 업데이트
+        for l, layerCfg in ipairs(GlowLayers) do
+            local glow = Glows[i][l]
+            local addSize = layerCfg.add
+            local trans = layerCfg.transparency
+ 
+            if cfg.isVertical then
+                glow.Size = UDim2.new(0, Thickness + addSize, 0, DynamicLength + addSize)
+            else
+                glow.Size = UDim2.new(0, DynamicLength + addSize, 0, Thickness + addSize)
+            end
+            glow.Position = pos
+            glow.BackgroundColor3 = CurrentColor
+            glow.BackgroundTransparency = trans
+        end
+    end
+end)
