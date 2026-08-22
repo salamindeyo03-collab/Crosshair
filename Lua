@@ -45,7 +45,7 @@ TextLabel.Size = UDim2.new(0, 300, 0, 20)
 TextLabel.Position = UDim2.new(0, -150, 0, 22)
 TextLabel.BackgroundTransparency = 1
 TextLabel.RichText = true 
-TextLabel.Text = '<font letter-spacing="6">𝑋_𝑋.win</font>' 
+TextLabel.Text = '<font letter-spacing="6">X_X.win</font>' 
 TextLabel.Font = Enum.Font.Arial 
 TextLabel.TextSize = 14
 TextLabel.TextStrokeTransparency = 0 
